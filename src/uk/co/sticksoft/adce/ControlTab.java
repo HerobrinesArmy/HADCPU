@@ -1,8 +1,8 @@
 package uk.co.sticksoft.adce;
 
-import uk.co.sticksoft.adce.Options.Observer;
 import uk.co.sticksoft.adce.cpu.CPU;
-import android.content.Context;
+import uk.co.sticksoft.adce.hardware.HardwareManager;
+import android.annotation.SuppressLint;
 import android.util.Log;
 import android.view.View;
 import android.widget.Button;
@@ -10,7 +10,6 @@ import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
-import uk.co.sticksoft.adce.hardware.*;
 
 public class ControlTab extends ScrollView implements CPU.Observer, Options.Observer 
 {
@@ -67,6 +66,7 @@ public class ControlTab extends ScrollView implements CPU.Observer, Options.Obse
 				public void onClick(View v)
 				{
 					cpu.execute();
+					updateInfo();
 				}
 			});
         lyt.addView(stepButton);
@@ -180,11 +180,17 @@ public class ControlTab extends ScrollView implements CPU.Observer, Options.Obse
     
     private long lastActualUpdate = System.currentTimeMillis(), lastCycleCount = 0;
     private String lastSpeed = "(unknown)";
-    public void updateInfo()
+    
+    @SuppressLint("DefaultLocale") // we format data the same way for all locales
+	public void updateInfo()
     {
     	statusLabel.setText(cpu.getStatusText());
     	
     	String speed = "(unknown)";
+    	
+    	if (lastCycleCount > cpu.cycleCount)
+    		lastCycleCount = cpu.cycleCount;
+    	
     	long cyclesElapsed = cpu.cycleCount - lastCycleCount;
     	long time = System.currentTimeMillis();
     	long millisElapsed = time - lastActualUpdate;
@@ -239,6 +245,8 @@ public class ControlTab extends ScrollView implements CPU.Observer, Options.Obse
 	};
 	
 	private long lastUpdateTime;
+	
+	private Thread watchdogUpdater;
 
 	@Override
 	public void onCpuExecution(CPU cpu)
@@ -248,6 +256,30 @@ public class ControlTab extends ScrollView implements CPU.Observer, Options.Obse
 		{
 			lastUpdateTime = time;
 			mainActivity.runOnUiThread(updateRunnable);
+		}
+		else if (watchdogUpdater == null)
+		{
+			watchdogUpdater = new Thread(new Runnable()
+			{
+				@Override
+				public void run()
+				{
+					long lastSeenUpdate = lastUpdateTime;
+					
+					while (Thread.currentThread() == watchdogUpdater)
+					{
+						try { Thread.sleep(500); } catch (Exception ex) {}
+						if (lastUpdateTime == lastSeenUpdate)
+						{
+							// No update in 500ms, update and stop watching
+							mainActivity.runOnUiThread(updateRunnable);
+							return;
+						}
+						else
+							lastUpdateTime = lastSeenUpdate;
+					}
+				}
+			}, "Watchdog controls update");
 		}
 	}
 

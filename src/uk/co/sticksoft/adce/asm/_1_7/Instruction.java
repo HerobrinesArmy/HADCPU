@@ -3,11 +3,10 @@ package uk.co.sticksoft.adce.asm._1_7;
 import java.util.List;
 import java.util.Map;
 
-import android.graphics.Color;
-
 import uk.co.sticksoft.adce.asm.Assembler_1_7;
 import uk.co.sticksoft.adce.asm2.BubbleNode;
 import uk.co.sticksoft.adce.asm2.BubbleNodeProperty;
+import android.graphics.Color;
 
 
 public class Instruction implements Token
@@ -149,11 +148,13 @@ public class Instruction implements Token
 		return LABEL_VALUE_NUMBER;
 	}
 	
-	public int registerValue(String register)
+	public int registerPlusNextWordValue(String register)
 	{
 		for (int i = 0; i < 8; i++)
 			if (valcodes[i].equalsIgnoreCase(register))
-				return i;
+				return Consts.ValueCode._nextwordA.ordinal() + i;
+		if (register.equalsIgnoreCase("SP"))
+			return Consts.ValueCode.PICK.ordinal();
 		return -1;
 	}
 	
@@ -181,6 +182,10 @@ public class Instruction implements Token
 				assembler.warning("Can't PUSH an a-value, I'm assuming you meant POP.");
 			return new Value(Consts.ValueCode.POP.ordinal());
 		}
+		else if (raw.equalsIgnoreCase("PEEK"))
+		{
+			return new Value(Consts.ValueCode.PEEK.ordinal());
+		}
 		
 		if (raw.length() > 5 && raw.substring(0, 4).equalsIgnoreCase("PICK"))
 		{
@@ -199,7 +204,7 @@ public class Instruction implements Token
 			{
 				String prePlus = raw.substring(1, plusIndex).trim(), postPlus = raw.substring(plusIndex+1, raw.length()-1).trim();
 				
-				int preRegister = registerValue(prePlus), postRegister = registerValue(postPlus);
+				int preRegister = registerPlusNextWordValue(prePlus), postRegister = registerPlusNextWordValue(postPlus);
 				
 				if (preRegister == -1 && postRegister == -1)
 				{
@@ -229,9 +234,9 @@ public class Instruction implements Token
 				int value = integerValue(numberOrLabel, false, assembler);
 				
 				if (value != LABEL_VALUE_NUMBER)
-					return new Value((char)(registerNumber + 16), (char)value);
+					return new Value((char)(registerNumber), (char)value);
 				else
-					return new Value((char)(registerNumber + 16), numberOrLabel);
+					return new Value((char)(registerNumber), numberOrLabel);
 			}
 			else
 			{
@@ -241,6 +246,8 @@ public class Instruction implements Token
 				
 				if (value != LABEL_VALUE_NUMBER)
 					return new Value(Consts.ValueCode._nextword.ordinal(), (char)value);
+				else if (numberOrLabel.equalsIgnoreCase("SP"))
+					return new Value(Consts.ValueCode.PEEK.ordinal());
 				else
 					return new Value(Consts.ValueCode._nextword.ordinal(), numberOrLabel);
 			}

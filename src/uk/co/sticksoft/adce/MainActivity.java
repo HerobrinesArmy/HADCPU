@@ -1,25 +1,36 @@
 package uk.co.sticksoft.adce;
 
-import android.app.*;
-import android.content.*;
-import android.os.*;
-import android.view.*;
-import android.view.View.*;
-import android.view.inputmethod.*;
-import android.widget.*;
-import android.widget.TabHost.*;
-import java.io.*;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
 
 import uk.co.sticksoft.adce.Options.DCPU_VERSION;
 import uk.co.sticksoft.adce.Options.Observer;
-import uk.co.sticksoft.adce.asm.*;
-import uk.co.sticksoft.adce.asm2.*;
-import uk.co.sticksoft.adce.cpu.*;
-import uk.co.sticksoft.adce.hardware.*;
-import uk.co.sticksoft.adce.help.*;
-
-import android.view.View.OnClickListener;
-import uk.co.sticksoft.adce.hardware.Console;
+import uk.co.sticksoft.adce.asm.Assembler_1_1;
+import uk.co.sticksoft.adce.asm2.BubbleParser;
+import uk.co.sticksoft.adce.asm2.BubbleView;
+import uk.co.sticksoft.adce.cpu.CPU;
+import uk.co.sticksoft.adce.hardware.GenericClock;
+import uk.co.sticksoft.adce.hardware.GenericKeyboard;
+import uk.co.sticksoft.adce.hardware.HardwareManager;
+import uk.co.sticksoft.adce.help.HelpActivity;
+import android.app.Activity;
+import android.app.AlertDialog;
+import android.content.Context;
+import android.content.Intent;
+import android.os.Bundle;
+import android.view.KeyEvent;
+import android.view.Menu;
+import android.view.MenuItem;
+import android.view.View;
+import android.view.ViewGroup.LayoutParams;
+import android.view.inputmethod.InputMethodManager;
+import android.widget.FrameLayout;
+import android.widget.LinearLayout;
+import android.widget.TabHost;
+import android.widget.TabHost.TabContentFactory;
+import android.widget.TabHost.TabSpec;
+import android.widget.TabWidget;
+import android.widget.Toast;
 
 public class MainActivity extends Activity implements Observer
 {
@@ -36,6 +47,11 @@ public class MainActivity extends Activity implements Observer
 	public static MainActivity me;
 	
 	public static Context getCurrentContext()
+	{
+		return me;
+	}
+	
+	public static MainActivity getLastInstance()
 	{
 		return me;
 	}
@@ -98,15 +114,19 @@ public class MainActivity extends Activity implements Observer
     
     private void setupTabs()
     {
+		Options.onCreate();
+		
 		// This is NOT the way you're meant to make tabs
 		tabHost = new TabHost(this, null);
 		LinearLayout tablyt = new LinearLayout(this);
+		tablyt.setLayoutParams(new LayoutParams(LayoutParams.FILL_PARENT, LayoutParams.FILL_PARENT));
 		tablyt.setOrientation(LinearLayout.VERTICAL);
 		TabWidget tw = new TabWidget(this);
 		tw.setId(android.R.id.tabs);
 		tablyt.addView(tw);
 		FrameLayout fl = new FrameLayout(this);
 		fl.setId(android.R.id.tabcontent);
+		fl.setLayoutParams(new LayoutParams(LayoutParams.FILL_PARENT, LayoutParams.FILL_PARENT));
 		tablyt.addView(fl);
 		tabHost.addView(tablyt);
 		tabHost.setup();
@@ -139,6 +159,11 @@ public class MainActivity extends Activity implements Observer
         // Make console tab
         addTab(tabHost, "Console", Options.getConsoleView(this));
         
+        if (Options.IsM35fdShown())
+        {
+        	// Make M35FD tab
+        	addTab(tabHost, "M35FD", Options.getM35fdView(this));
+        }
         
         // Make ship tab
         addTab(tabHost, "Ship", new ShipView2D(this));
@@ -165,9 +190,9 @@ public class MainActivity extends Activity implements Observer
     
     private void checkVersion()
     {
-    	final String currentVersion = "0.30";
-    	final String currentMessage = "NEW: Added DCPU 1.7 support and some hardware.\n\nIf your 1.1 program no longer works, don't fret - the DCPU version can be changed in the new Settings menu!\n\nFor hardware info, see Help.\n";
-    	final boolean massiveUpdate = true;
+    	final String currentVersion = "0.33";
+    	final String currentMessage = "NEW: Fix for PC and divide by 0 bugs!";
+    	final boolean massiveUpdate = false;
     	
     	FileInputStream fis = null;
     	boolean up_to_date = false;
@@ -231,7 +256,7 @@ public class MainActivity extends Activity implements Observer
     
 
 	
-	private char[] assembled = SampleASM.notchs_example_assembled;
+	private char[] assembled = new char[0]; //SampleASM.notchs_example_assembled;
 	public void setAssembled(char[] bin)
 	{
 		assembled = bin;
@@ -360,6 +385,23 @@ public class MainActivity extends Activity implements Observer
     
     private boolean dont_autoload = false;
     
+    public interface FileDialogCallback { void onPathSelected(String s); }
+    
+    private static FileDialogCallback fileDialogCallback = null;
+    public static void showFileDialog(boolean saving, FileDialogCallback fdc)
+    {
+    	fileDialogCallback = fdc;
+    	
+    	if (me == null)
+    		return;
+    	
+    	
+    	Intent intent = new Intent(me, DirectoryBrowserActivity.class);
+    	if (saving)
+    		intent.putExtra("saving", true);
+		me.startActivityForResult(intent, 2);
+    }
+    
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data)
     {
@@ -371,6 +413,14 @@ public class MainActivity extends Activity implements Observer
     	if (data == null || (path = data.getStringExtra("path")) == null || path.length() == 0)
     	{
     		log("No file path returned!\n");
+    		return;
+    	}
+    	
+    	if (fileDialogCallback != null)
+    	{
+    		FileDialogCallback fdc = fileDialogCallback;
+    		fileDialogCallback = null;
+    		fdc.onPathSelected(path);
     		return;
     	}
     	
@@ -512,6 +562,11 @@ public class MainActivity extends Activity implements Observer
 	public static void setBackHandler(Runnable runnable)
 	{
 		backHandler = runnable;
+	}
+	public static void removeBackHandler(Runnable runnable)
+	{
+		if (backHandler == runnable)
+			backHandler = null;
 	}
 
 	@Override

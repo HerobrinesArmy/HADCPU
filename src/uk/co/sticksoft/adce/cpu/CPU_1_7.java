@@ -2,6 +2,9 @@ package uk.co.sticksoft.adce.cpu;
 
 import java.util.LinkedList;
 import java.util.Queue;
+
+import android.widget.Toast;
+import uk.co.sticksoft.adce.MainActivity;
 import uk.co.sticksoft.adce.asm._1_7.*;
 import uk.co.sticksoft.adce.hardware.Device;
 import uk.co.sticksoft.adce.hardware.HardwareManager;
@@ -14,12 +17,13 @@ public class CPU_1_7 extends CPU
 	public static final int A = 0, B = 1, C = 2, X = 3, Y = 4, Z = 5, I = 6, J = 7;
 	public char[] register = new char[J+1];	
 	public char PC, SP, EX, IA;
+	public int lastResult;
 	
 	// Flags
 	private boolean onFire, skipping, interruptQueueing;
 	
-	// Temporary cache for SP and PC 
-	private char tSP, tPC;
+	// Temporary cache for SP 
+	private char tSP;
 	
 	// Interrupt queue
 	private Queue<Character> interruptQueue = new LinkedList<Character>();
@@ -84,13 +88,13 @@ public class CPU_1_7 extends CPU
 		if (value < 0x10)
 			return register[value-0x08];
 		if (value < 0x18)
-			return (char)(RAM[tPC++]+register[value-0x10]);
+			return (char)(RAM[PC++]+register[value-0x10]);
 		if (value == 0x18)
 			return tSP++;
 		if (value == 0x19)
 			return tSP;
 		if (value == 0x1a)
-			return (char)(RAM[tPC++] + tSP);
+			return (char)(RAM[PC++] + tSP);
 		if (value == 0x1b)
 			return 0;
 		if (value == 0x1c)
@@ -98,9 +102,9 @@ public class CPU_1_7 extends CPU
 		if (value == 0x1d)
 			return 0;
 		if (value == 0x1e)
-			return RAM[tPC++];
+			return RAM[PC++];
 		if (value == 0x1f)
-			return tPC++;
+			return PC++;
 		
 		return (char)(value - 0x20);
 	}
@@ -112,13 +116,13 @@ public class CPU_1_7 extends CPU
 		if (value < 0x10)
 			return register[value-0x08];
 		if (value < 0x18)
-			return (char)(RAM[tPC++]+register[value-0x10]);
+			return (char)(RAM[PC++]+register[value-0x10]);
 		if (value == 0x18)
 			return --tSP;
 		if (value == 0x19)
 			return tSP;
 		if (value == 0x1a)
-			return (char)(RAM[tPC++] + tSP);
+			return (char)(RAM[PC++] + tSP);
 		if (value == 0x1b)
 			return 0;
 		if (value == 0x1c)
@@ -126,9 +130,9 @@ public class CPU_1_7 extends CPU
 		if (value == 0x1d)
 			return 0;
 		if (value == 0x1e)
-			return RAM[tPC++];
+			return RAM[PC++];
 		if (value == 0x1f)
-			return tPC++;
+			return PC++;
 		
 		return (char)(value - 0x20);
 	}
@@ -166,7 +170,7 @@ public class CPU_1_7 extends CPU
 			RAM[address] = word;
 			break;
 		case PC:
-			tPC = word;
+			PC = word;
 			break;
 		case SP:
 			tSP = word;
@@ -183,21 +187,29 @@ public class CPU_1_7 extends CPU
 	{
 		return c < 0x8000 ? c : c - 0x10000;
 	}
+	
+	public char getLastResult()
+	{
+		return (char)lastResult;
+	}
 
 	@Override
 	public synchronized void execute()
 	{
 		cycleCount++;
 		tSP = SP;			// Cache SP
-		tPC = (char)(PC+1); // Pre-increment tPC
+		lastResult = 0;
 		
 		boolean error = false; // Not sure what to do with this yet (maybe set on fire?)
 		
-		// Fetch
-		char instr = RAM[PC];
+		// Fetch & increment PC
+		char instr = RAM[PC++];
 		
 		if (instr == 0) // Invalid instruction; stop.
+		{
+			notifyObservers();
 			return;
+		}
 		
 		// Decode
 		int opcode = instr & 0x1f;
@@ -210,11 +222,9 @@ public class CPU_1_7 extends CPU
 			{
 				// Skip reading next words 
 				if ((b >= 0x10 && b < 0x18) || b == 0x1a || b == 0x1e || b == 0x1f) // [register + next word], [SP + next word], [next word], next word
-					tPC++;
+					PC++;
 				if ((a >= 0x10 && a < 0x18) || a == 0x1a || a == 0x1e || a == 0x1f) // [register + next word], [SP + next word], [next word], next word
-					tPC++;
-				
-				PC = tPC;
+					PC++;
 				
 				if (opcode < 0x10 || opcode > 0x17) // Keep skipping over conditionals
 					skipping = false;
@@ -239,11 +249,11 @@ public class CPU_1_7 extends CPU
 						break;
 					case 0x02: // ADD
 						res = bVal + aVal;
-						EX = (res < 0xffff) ? (char)0 : (char)1;
+						EX = (res <= 0xffff) ? (char)0 : (char)1;
 						break;
 					case 0x03: // SUB
 						res = bVal - aVal;
-						EX = (res > 0) ? 0 : (char)0xffff;
+						EX = (res >= 0) ? 0 : (char)0xffff;
 						break;
 					case 0x04: // MUL
 						res = bVal * aVal;
@@ -254,12 +264,22 @@ public class CPU_1_7 extends CPU
 						EX = (char)(res >> 16);
 						break;
 					case 0x06: // DIV
-						res = bVal / aVal;
-						EX = (char)(((bVal << 16) / aVal) & 0xffff);
+						if (aVal != 0)
+						{
+							res = bVal / aVal;
+							EX = (char)(((bVal << 16) / aVal) & 0xffff);
+						}
+						else
+							res = EX = 0;
 						break;
 					case 0x07: // DVI
-						res = unsignedCharAsSignedInt(bVal) / unsignedCharAsSignedInt(aVal);
-						EX = (char)(((unsignedCharAsSignedInt(bVal) << 16) / unsignedCharAsSignedInt(aVal)) & 0xffff);
+						if (aVal != 0)
+						{
+							res = unsignedCharAsSignedInt(bVal) / unsignedCharAsSignedInt(aVal);
+							EX = (char)(((unsignedCharAsSignedInt(bVal) << 16) / unsignedCharAsSignedInt(aVal)) & 0xffff);
+						}
+						else
+							res = EX = 0;
 						break;
 					case 0x08: // MOD
 						if (aVal == 0)
@@ -287,8 +307,8 @@ public class CPU_1_7 extends CPU
 						EX = (char)(((bVal << 16) >>> a) & 0xffff);
 						break;
 					case 0x0e: // ASR
-						res = bVal >> aVal;
-						EX = (char)(((bVal << 16) >> a) & 0xffff);
+						res = unsignedCharAsSignedInt(bVal) >> unsignedCharAsSignedInt(aVal);
+						EX = (char)(((unsignedCharAsSignedInt(bVal) << 16) >> unsignedCharAsSignedInt(aVal)) & 0xffff);
 						break;
 					case 0x0f: // SHL
 						res = bVal << aVal;
@@ -324,11 +344,11 @@ public class CPU_1_7 extends CPU
 						break;
 					case 0x1a: // ADX
 						res = bVal + aVal + EX;
-						EX = (char)((res < 0) ? 0 : 1);
+						EX = (char)((res <= 0xFFFF) ? 0 : 1);
 						break;
 					case 0x1b: // SBX
 						res = bVal - aVal - EX;
-						EX = (char)((res > 0) ? 0 : 1);
+						EX = (char)((res >= 0) ? 0 : 1);
 						break;
 					case 0x1c: // -
 					case 0x1d: // -
@@ -346,6 +366,8 @@ public class CPU_1_7 extends CPU
 						break;
 				}
 				
+				lastResult = res;
+				
 				if (opcode < 0x10 || opcode > 0x17)
 					write(bType, bAddr, (char)(res & 0xffff));
 			}
@@ -356,10 +378,9 @@ public class CPU_1_7 extends CPU
 			{
 				// Skip reading next word
 				if ((a >= 0x10 && a < 0x18) || a == 0x1a || a == 0x1e || a == 0x1f) // [register + next word], [SP + next word], [next word], next word
-					tPC++;
+					PC++;
 				
 				skipping = false;
-				PC = tPC;
 			}
 			else
 			{
@@ -374,10 +395,10 @@ public class CPU_1_7 extends CPU
 					char jmp = read(addressType(a), addressA(a));
 					
 					// Push PC
-					RAM[--tSP] = tPC;
+					RAM[--tSP] = PC;
 					
 					// Set PC to jump address (after increment)
-					tPC = jmp;
+					PC = jmp;
 					break;
 				case 0x02: // -
 				case 0x03: // -
@@ -399,7 +420,7 @@ public class CPU_1_7 extends CPU
 				case 0x0b: // RFI
 					interruptQueueing = false;
 					register[A] = RAM[tSP++];
-					tPC = RAM[tSP++];
+					PC = RAM[tSP++];
 					break;
 				case 0x0c: // IAQ
 					interruptQueueing = (read(addressType(a), addressA(a)) == 0);
@@ -458,13 +479,12 @@ public class CPU_1_7 extends CPU
 		if (!skipping && !interruptQueueing && !interruptQueue.isEmpty())
 		{
 			interruptQueueing = true;
-			RAM[tSP--] = tPC;
+			RAM[tSP--] = PC;
 			RAM[tSP--] = register[A];
-			tPC = IA;
+			PC = IA;
 			register[A] = interruptQueue.remove().charValue();
 		}
 		
-		PC = tPC;
 		SP = tSP;
 		
 		notifyObservers();
@@ -477,14 +497,71 @@ public class CPU_1_7 extends CPU
 		else if (IA != 0)
 		{
 			interruptQueueing = true;
-			RAM[--tSP] = tPC;
+			RAM[--tSP] = PC;
 			RAM[--tSP] = register[A];
-			tPC = IA;
+			PC = IA;
 			register[A] = interrupt;
 		}
 		
-		PC = tPC;
 		SP = tSP;
+	}
+	
+	public char[] getStateInfo()
+	{
+		int size = 1 /* version */ + register.length /* registers */ + 4 /* PC, SP, EX, IA */ + 3 /* on fire, skipping, interrupt queueing */ + 2 /* cyclecount */ + 1 /* interrupt queue size*/ + interruptQueue.size() /* interrupt queue */;
+		
+		char[] out = new char[size];
+		int cursor = 0;
+		out[cursor++] = 0x0107; // Version 1.7
+		System.arraycopy(register, 0, out, cursor, register.length); cursor += register.length; 
+		out[cursor++] = PC;
+		out[cursor++] = SP;
+		out[cursor++] = EX;
+		out[cursor++] = IA;
+		out[cursor++] = (char) (onFire ? 0xFFFF : 0x0000);
+		out[cursor++] = (char) (skipping ? 0xFFFF : 0x0000);
+		out[cursor++] = (char) (interruptQueueing ? 0xFFFF : 0x0000);
+		intToLittleEndian((int)cycleCount, out, cursor); cursor += 2;
+		out[cursor++] = (char) interruptQueue.size();
+		
+		for (Character c : interruptQueue)
+			out[cursor++] = c;
+		
+		return out;
+	}
+	
+	public void setStateInfo(char[] state)
+	{
+		try
+		{
+			//int size = 1 /* version */ + register.length /* registers */ + 4 /* PC, SP, EX, IA */ + 3 /* on fire, skipping, interrupt queueing */ + 2 /* cyclecount */ + 1 /* interrupt queue size*/ + interruptQueue.size() /* interrupt queue */;
+			
+			char version = state[0];
+			if (version != 0x0107)
+			{
+				MainActivity.showToast("State info doesn't match this processor version!", Toast.LENGTH_LONG);
+				return;
+			}
+			
+			int cursor = 0;
+			System.arraycopy(state, 0, register, 0, cursor = register.length);
+			PC = state[cursor++];
+			SP = state[cursor++];
+			EX = state[cursor++];
+			IA = state[cursor++];
+			onFire = (state[cursor++] == 0xFFFF);
+			skipping = (state[cursor++] == 0xFFFF);
+			interruptQueueing = (state[cursor++] == 0xFFFF);
+			cycleCount = intFromLittleEndian(state, cursor); cursor += 2;
+			char iqSize = state[cursor++];
+			interruptQueue.clear();
+			for (int i = cursor; i < iqSize + cursor; i++)
+				interruptQueue.add(state[cursor]);
+		}
+		catch (Exception ex)
+		{
+			MainActivity.showToast("Unable to retreive CPU state!", Toast.LENGTH_LONG);
+		}
 	}
 
 	@Override

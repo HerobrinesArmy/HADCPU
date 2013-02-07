@@ -16,6 +16,7 @@ import android.graphics.PointF;
 import android.graphics.RadialGradient;
 import android.graphics.Rect;
 import android.graphics.RectF;
+import android.graphics.Typeface;
 import android.graphics.Region.Op;
 import android.graphics.Shader.TileMode;
 import android.text.Editable;
@@ -167,6 +168,7 @@ public class BubbleView extends View implements TextWatcher
 		String text = b.text();
 		if (text != null)
 		{
+			measurePaint.setTypeface(Typeface.MONOSPACE);
 			measurePaint.getTextBounds(text, 0, text.length(), bounds);
 			final float extra = 12;
 			if (bounds.width() + extra > b.width)
@@ -256,6 +258,7 @@ public class BubbleView extends View implements TextWatcher
 			
 			textPaint.setColor(textColour);
 			textPaint.setAlpha(55 + (int)(200 * Math.min(1, alpha * 4.0f)));
+			textPaint.setTypeface(Typeface.MONOSPACE);
 			
 			// Draw
 			if (alpha > 0.02f)
@@ -596,15 +599,41 @@ public class BubbleView extends View implements TextWatcher
 		updateThread = null;
 	}
 	
-	public void showActions(List<NodeAction> actions, BubbleNode node)
+	public void showActions(ArrayList<ArrayList<NodeAction>> actions, BubbleNode node)
 	{
-		container.addView(new ActionTable(this, actions, node));
+		cover(new ActionTable(this, actions, node));
+	}
+	
+	private ArrayList<View> coverStack = new ArrayList<View>();
+	private View currentCover = null;
+	
+	public void cover(View view)
+	{
+		if (currentCover != null)
+			container.removeView(currentCover);
+		currentCover = view;
+		container.addView(view);
+		coverStack.add(view);
 		covered = true;
 	}
 	
 	public void uncover(View view)
 	{
-		container.removeView(view);
-		covered = false;
+		coverStack.remove(view);
+		if (view == currentCover)
+		{
+			container.removeView(currentCover);
+		
+			if (coverStack.isEmpty())
+			{
+				currentCover = null;
+				covered = false;
+			}
+			else
+			{
+				container.addView(currentCover = coverStack.get(coverStack.size()-1));
+				covered = true;
+			}
+		}
 	}
 }
