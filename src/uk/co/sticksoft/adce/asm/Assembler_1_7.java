@@ -1,17 +1,19 @@
 package uk.co.sticksoft.adce.asm;
 
+import java.io.File;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
 
-import android.util.Log;
-
+import uk.co.sticksoft.adce.MainActivity;
 import uk.co.sticksoft.adce.asm._1_7.Consts;
 import uk.co.sticksoft.adce.asm._1_7.Dat;
 import uk.co.sticksoft.adce.asm._1_7.DebugToken;
 import uk.co.sticksoft.adce.asm._1_7.Instruction;
 import uk.co.sticksoft.adce.asm._1_7.Label;
 import uk.co.sticksoft.adce.asm._1_7.Token;
+import android.os.Environment;
+import android.util.Log;
 
 
 public class Assembler_1_7 implements Assembler
@@ -33,6 +35,8 @@ public class Assembler_1_7 implements Assembler
 	public char[] assemble(String source, ArrayList<String> out_message, HashMap<Integer, String> out_debugSymbols)
 	{
 		reset();
+		
+		source = Preprocessor.preprocess(source, new File(Environment.getExternalStorageDirectory().getAbsolutePath() + File.separatorChar + "ADCPU"), out_message);
 		
 		this.source = source;
 		this.sourceLength = source.length();
@@ -88,12 +92,12 @@ public class Assembler_1_7 implements Assembler
 	{
 		try
 		{
-		while (sourceIndex < sourceLength)
-			readNextToken();
+			while (sourceIndex < sourceLength)
+				readNextToken();
 		}
 		catch (Exception e)
 		{
-			
+			Log.e("ASM1_7", "Exception assembling: ", e);
 		}
 	}
 	
@@ -218,7 +222,7 @@ public class Assembler_1_7 implements Assembler
 		}
 		
 		
-		debugToken.setToken(source.substring(debugTokenIndex, sourceIndex));
+		debugToken.setToken(source.substring(debugTokenIndex, sourceIndex < sourceLength ? sourceIndex : sourceLength));
 		debugTokenIndex = sourceIndex;
 	}
 	
@@ -277,7 +281,12 @@ public class Assembler_1_7 implements Assembler
 			}
 		}
 		
-		return source.substring(start, sourceIndex++);
+		String val = source.substring(start, sourceIndex++);
+		
+		if (val.equalsIgnoreCase("PICK"))
+			return val + " " + readValue(); 
+		
+		return val;
 	}
 	
 	protected void readBasicInstruction(char opcode)
@@ -393,6 +402,7 @@ public class Assembler_1_7 implements Assembler
 			else
 			{
 				builder.append(unescapeCharacter(c));
+				escaping = false;
 			}
 		}
 		
@@ -427,6 +437,19 @@ public class Assembler_1_7 implements Assembler
 			return Integer.parseInt(number);
 		}
 		catch (Exception ex) { return 0; }
+	}
+	
+	protected boolean isNextNonWhitespaceChar(char c)
+	{
+		for (int i = sourceIndex; i < sourceLength; i++)
+		{
+			char current = source.charAt(i); 
+			if (current == c)
+				return true;
+			else if (!Character.isWhitespace(current))
+				return false;
+		}
+		return false;
 	}
 	
 	protected void readDat()
@@ -466,6 +489,33 @@ public class Assembler_1_7 implements Assembler
 				
 				verbose("Dat number: \""+builder.toString()+"\"");
 				structure.add(new Dat((char)readDatNumber(builder.toString())));
+			}
+			else if (Character.isLetter(c))
+			{
+				StringBuilder builder = new StringBuilder();
+				builder.append(c);
+				while (sourceIndex < sourceLength)
+				{
+					c = readNextCharacter();
+					if (!Character.isDigit(c) && !Character.isLetter(c) && c != '_')
+					{
+						if (c == ',')
+							carryOn = true;
+						break;
+					}
+					else
+						builder.append(c);
+				}
+				
+				verbose("Dat label: \""+builder.toString()+"\"");
+				structure.add(new Dat(builder.toString(), true));
+			}
+			
+			if (isNextNonWhitespaceChar(','))
+			{
+				carryOn = true;
+				readToNextNonWhitespace();
+				sourceIndex++;
 			}
 		}
 		

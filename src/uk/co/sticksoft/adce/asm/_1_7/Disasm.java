@@ -45,12 +45,16 @@ public class Disasm
 						bName,
 						aName));
 				}
-				else
+				else if (val != 0)
 				{
 					builder.append(String.format("0x%04x %s %s",
 					    pc,
 						Consts.AdvancedOpcode.values()[b].toString(),
 						GetValueName(a, true)));
+				}
+				else
+				{
+					builder.append(String.format("0x%04x <halt>", pc));
 				}
 				builder.append(" ").append(coda.toString()).append('\n');
 			}
@@ -93,7 +97,9 @@ public class Disasm
 						add);
 		}
 		else if (val == 24)
-		    return aValue ? "PUSH" : "POP";
+		    return aValue ? "POP" : "PUSH";
+		else if (val == 26)
+			return String.format("PICK 0x%04x (%d)", (int)RAM[PC], (int)RAM[PC++]);
 		else if (val < 30)
 		    return Consts.ValueCode.values()[val].toString();
 		else if (val == 30)
@@ -102,9 +108,9 @@ public class Disasm
 		    return String.format("[0x%04x] (0x%x)", add, (int)RAM[add]);
 		}
 		else if (val == 31)
-		    return String.format("0x%04x", (int)RAM[PC++]);
+		    return String.format("0x%04x (%d)", (int)RAM[PC], (int)RAM[PC++]);
 		else
-		    return String.format("0x%x", val-33);
+		    return String.format("%d", val-33);
 	}
 	
 	public static int addCoda(int address)
