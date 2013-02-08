@@ -3,6 +3,7 @@ package uk.co.sticksoft.adce.hardware;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 
+import uk.co.sticksoft.adce.Branding;
 import uk.co.sticksoft.adce.MainActivity;
 import uk.co.sticksoft.adce.MainActivity.FileDialogCallback;
 import uk.co.sticksoft.adce.Options;
@@ -36,50 +37,50 @@ public class M35FD extends FrameLayout implements Device, OnClickListener
 		layout.setOrientation(LinearLayout.VERTICAL);
 		scroll.addView(layout);
 		
-		blankButton = new Button(context);
+		blankButton = Branding.CreateButton(context);
 		blankButton.setText("Insert blank disk");
 		blankButton.setOnClickListener(this);
 		layout.addView(blankButton);
 		
-		loadButton = new Button(context);
+		loadButton = Branding.CreateButton(context);
 		loadButton.setText("Load disk image");
 		loadButton.setOnClickListener(this);
 		layout.addView(loadButton);
 		
-		saveButton = new Button(context);
+		saveButton = Branding.CreateButton(context);
 		saveButton.setText("Save disk image");
 		saveButton.setOnClickListener(this);
 		layout.addView(saveButton);
 				
-		ejectButton = new Button(context);
+		ejectButton = Branding.CreateButton(context);
 		ejectButton.setText("Eject disk");
 		ejectButton.setOnClickListener(this);
 		layout.addView(ejectButton);
 		
-		dumpButton = new Button(context);
+		dumpButton = Branding.CreateButton(context);
 		dumpButton.setText("Save RAM dump");
 		dumpButton.setOnClickListener(this);
 		layout.addView(dumpButton);
 		
-		stateToggle = new ToggleButton(context);
+		stateToggle = Branding.CreateToggleButton(context);
 		stateToggle.setTextOn("Append CPU state info");
 		stateToggle.setTextOff("Append CPU state info");
 		stateToggle.setChecked(true);
 		layout.addView(stateToggle);
 
 		
-		bootButton = new Button(context);
+		bootButton = Branding.CreateButton(context);
 		bootButton.setText("Load RAM dump");
 		bootButton.setOnClickListener(this);
 		layout.addView(bootButton);
 		
-		endiannessToggle = new ToggleButton(context);
+		endiannessToggle = Branding.CreateToggleButton(context);
 		endiannessToggle.setTextOn("Little endian");
 		endiannessToggle.setTextOff("Big endian");
 		endiannessToggle.setChecked(true);
 		layout.addView(endiannessToggle);
 		
-		statusText = new TextView(context);
+		statusText = Branding.CreateTextView(context);
 		layout.addView(statusText);
 		
 		addView(scroll);

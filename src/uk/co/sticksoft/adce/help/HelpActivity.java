@@ -3,7 +3,6 @@ package uk.co.sticksoft.adce.help;
 import java.util.HashSet;
 import java.util.Set;
 
-import uk.co.sticksoft.adce.R;
 import android.app.ListActivity;
 import android.content.Intent;
 import android.database.DataSetObserver;
@@ -14,6 +13,8 @@ import android.view.ViewGroup;
 import android.widget.ListAdapter;
 import android.widget.ListView;
 import android.widget.TextView;
+
+import com.herobrinesarmy.R;
 
 public class HelpActivity extends ListActivity implements ListAdapter
 {

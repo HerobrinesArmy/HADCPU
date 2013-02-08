@@ -3,6 +3,8 @@ package uk.co.sticksoft.adce;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 
+import com.herobrinesarmy.R;
+
 import uk.co.sticksoft.adce.Options.DCPU_VERSION;
 import uk.co.sticksoft.adce.Options.Observer;
 import uk.co.sticksoft.adce.asm.Assembler_1_1;
@@ -17,6 +19,7 @@ import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.Context;
 import android.content.Intent;
+import android.graphics.Color;
 import android.os.Bundle;
 import android.view.KeyEvent;
 import android.view.Menu;
@@ -168,6 +171,10 @@ public class MainActivity extends Activity implements Observer
         // Make ship tab
         addTab(tabHost, "Ship", new ShipView2D(this));
         
+        // Add HA tab colours
+        TabWidget widget = tabHost.getTabWidget();
+        for (int i = 0; i < widget.getChildCount(); i++)
+        	widget.getChildAt(i).setBackgroundColor(Color.argb(255, 127, 0, 0));
         
         setContentView(tabHost);
     }

@@ -9,6 +9,7 @@ import java.util.HashMap;
 import uk.co.sticksoft.adce.cpu.CPU;
 import android.app.ProgressDialog;
 import android.content.Context;
+import android.graphics.Color;
 import android.graphics.Typeface;
 import android.os.AsyncTask;
 import android.text.InputType;
@@ -48,10 +49,14 @@ public class AssemblyEditorTab extends ScrollView
         asmInput.setTypeface(Typeface.MONOSPACE);
         asmInput.setHorizontallyScrolling(true);
         
+        // Add HA branding
+        asmInput.setBackgroundColor(Color.BLACK);
+        asmInput.setTextColor(Color.RED);
+        
         autoload();
         lyt.addView(asmInput);
         
-        Button assembleButton = new Button(context);
+        Button assembleButton = Branding.CreateButton(context);
         assembleButton.setText("Assemble");
         assembleButton.setOnClickListener(new OnClickListener()
 		{
@@ -62,7 +67,7 @@ public class AssemblyEditorTab extends ScrollView
 		});
         lyt.addView(assembleButton);
         
-        asmOutput = new TextView(context);
+        asmOutput = Branding.CreateTextView(context);
         lyt.addView(asmOutput);
         
         addView(lyt);

@@ -40,15 +40,15 @@ public class ControlTab extends ScrollView implements CPU.Observer, Options.Obse
         
         lyt.addView(ramviz = new RAMViz(context));
         
-        statusLabel = new TextView(context);
+        statusLabel = Branding.CreateTextView(context);
         statusLabel.setText("...");
     	lyt.addView(statusLabel);
     	
-    	cycleLabel = new TextView(context);
+    	cycleLabel = Branding.CreateTextView(context);
     	cycleLabel.setText(" ");
     	lyt.addView(cycleLabel);
         
-        startButton = new Button(context);
+        startButton = Branding.CreateButton(context);
         startButton.setText("Start");
         startButton.setOnClickListener(new OnClickListener()
 		{
@@ -59,7 +59,7 @@ public class ControlTab extends ScrollView implements CPU.Observer, Options.Obse
 		});
         lyt.addView(startButton);
 		
-		stepButton = new Button(context);
+		stepButton = Branding.CreateButton(context);
         stepButton.setText("Step");
         stepButton.setOnClickListener(new OnClickListener()
 			{
@@ -71,7 +71,7 @@ public class ControlTab extends ScrollView implements CPU.Observer, Options.Obse
 			});
         lyt.addView(stepButton);
         
-        resetButton = new Button(context);
+        resetButton = Branding.CreateButton(context);
         resetButton.setText("Reset");
         resetButton.setOnClickListener(new OnClickListener()
 		{
@@ -82,7 +82,7 @@ public class ControlTab extends ScrollView implements CPU.Observer, Options.Obse
 		});
         lyt.addView(resetButton);
         
-        log = new TextView(context);
+        log = Branding.CreateTextView(context);
         lyt.addView(log);
         
         
